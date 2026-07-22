@@ -5,8 +5,7 @@ using UnityEngine.InputSystem;
 namespace Chess.View
 {
     /// <summary>
-    /// Hot-seat input: mouse (Editor) or touch raycasts onto board squares/pieces.
-    /// Uses the Input System package (project activeInputHandler = Input System Only).
+    /// Hot-seat input: mouse (Editor) or touch. Ignores input while animations play.
     /// </summary>
     public class ChessGameController : MonoBehaviour
     {
@@ -17,7 +16,7 @@ namespace Chess.View
         ChessGame _game;
 
         public ChessGame Game => _game;
-        public string StatusMessage { get; private set; } = "White to move";
+        public string StatusMessage { get; private set; } = "White's turn — make your move!";
 
         void Awake()
         {
@@ -28,12 +27,15 @@ namespace Chess.View
 
             _game = new ChessGame();
             _game.OnStatusMessage += msg => StatusMessage = msg;
-            _game.OnCheck += color => StatusMessage = $"{color} is in check";
+            _game.OnCheck += color => StatusMessage = $"Check! {color}'s king is in danger";
             boardView.Bind(_game);
         }
 
         void Update()
         {
+            if (boardView != null && boardView.IsBusy)
+                return;
+
             if (WasPointerDown(out var screenPos))
                 TryHandlePointer(screenPos);
         }
@@ -61,7 +63,7 @@ namespace Chess.View
 
         void TryHandlePointer(Vector2 screenPos)
         {
-            if (raycastCamera == null)
+            if (raycastCamera == null || boardView == null || _game == null)
                 return;
 
             var ray = raycastCamera.ScreenPointToRay(screenPos);

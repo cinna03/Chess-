@@ -3,6 +3,34 @@ using System.Collections.Generic;
 
 namespace Chess.Core
 {
+    public readonly struct MoveEvent
+    {
+        public readonly Move Move;
+        public readonly Piece Mover;
+        public readonly Piece Captured;
+        public readonly PieceColor SideThatMoved;
+        public readonly PieceColor SideToMoveAfter;
+        public readonly bool GaveCheck;
+
+        public MoveEvent(
+            Move move,
+            Piece mover,
+            Piece captured,
+            PieceColor sideThatMoved,
+            PieceColor sideToMoveAfter,
+            bool gaveCheck)
+        {
+            Move = move;
+            Mover = mover;
+            Captured = captured;
+            SideThatMoved = sideThatMoved;
+            SideToMoveAfter = sideToMoveAfter;
+            GaveCheck = gaveCheck;
+        }
+
+        public bool WasCapture => !Captured.IsEmpty || Move.IsEnPassant || Move.IsCapture;
+    }
+
     /// <summary>
     /// Hot-seat chess session: selection, legal moves, apply move, reset.
     /// </summary>
@@ -13,9 +41,11 @@ namespace Chess.Core
         public IReadOnlyList<Move> LegalMovesForSelection { get; private set; } = Array.Empty<Move>();
 
         public event Action OnBoardChanged;
+        public event Action OnNewGame;
         public event Action<PieceColor> OnTurnChanged;
         public event Action<PieceColor> OnCheck;
         public event Action<string> OnStatusMessage;
+        public event Action<MoveEvent> OnMoveApplied;
 
         public PieceColor SideToMove => Board.SideToMove;
 
@@ -29,9 +59,10 @@ namespace Chess.Core
         {
             Board.SetupStartingPosition();
             ClearSelection();
+            OnNewGame?.Invoke();
             RaiseBoardChanged();
             OnTurnChanged?.Invoke(Board.SideToMove);
-            OnStatusMessage?.Invoke("White to move");
+            OnStatusMessage?.Invoke("White's turn — make your move!");
         }
 
         public void ClearSelection()
@@ -40,30 +71,23 @@ namespace Chess.Core
             LegalMovesForSelection = Array.Empty<Move>();
         }
 
-        /// <summary>
-        /// Tap a square: select own piece, or move to a legal destination.
-        /// Returns true if the board state changed.
-        /// </summary>
         public bool HandleSquareTap(Square square)
         {
             if (!square.IsValid)
                 return false;
 
-            // If a piece is selected and tap is a legal destination → move.
             if (SelectedSquare.HasValue)
             {
                 foreach (var move in LegalMovesForSelection)
                 {
                     if (move.To == square)
                     {
-                        // Prefer queen promotion if multiple promotion moves to same square.
                         var chosen = PreferPromotion(move, LegalMovesForSelection);
                         ApplyMove(chosen);
                         return true;
                     }
                 }
 
-                // Tapped another own piece → reselect.
                 var piece = Board.GetPiece(square);
                 if (!piece.IsEmpty && piece.Color == Board.SideToMove)
                 {
@@ -76,7 +100,6 @@ namespace Chess.Core
                 return false;
             }
 
-            // No selection: select own piece if present.
             var tapped = Board.GetPiece(square);
             if (!tapped.IsEmpty && tapped.Color == Board.SideToMove)
             {
@@ -96,22 +119,46 @@ namespace Chess.Core
 
         public void ApplyMove(Move move)
         {
+            var sideThatMoved = Board.SideToMove;
+            var mover = Board.GetPiece(move.From);
+            var captured = ResolveCapturedPiece(move, mover);
+
             Board.ApplyMove(move);
             ClearSelection();
+
+            var sideAfter = Board.SideToMove;
+            var inCheck = MoveGenerator.IsInCheck(Board, sideAfter);
+
+            var moveEvent = new MoveEvent(move, mover, captured, sideThatMoved, sideAfter, inCheck);
+            OnMoveApplied?.Invoke(moveEvent);
+
             RaiseBoardChanged();
+            OnTurnChanged?.Invoke(sideAfter);
 
-            var side = Board.SideToMove;
-            OnTurnChanged?.Invoke(side);
-
-            if (MoveGenerator.IsInCheck(Board, side))
+            if (inCheck)
             {
-                OnCheck?.Invoke(side);
-                OnStatusMessage?.Invoke($"{side} is in check — {side} to move");
+                OnCheck?.Invoke(sideAfter);
+                OnStatusMessage?.Invoke($"Check! {sideAfter}'s king is in danger");
+            }
+            else if (!captured.IsEmpty || move.IsCapture)
+            {
+                OnStatusMessage?.Invoke($"Nice capture! {sideAfter}'s turn");
             }
             else
             {
-                OnStatusMessage?.Invoke($"{side} to move");
+                OnStatusMessage?.Invoke($"{sideAfter}'s turn — make your move!");
             }
+        }
+
+        Piece ResolveCapturedPiece(Move move, Piece mover)
+        {
+            if (move.IsEnPassant)
+            {
+                var capturedRank = mover.Color == PieceColor.White ? move.To.Rank - 1 : move.To.Rank + 1;
+                return Board.GetPiece(new Square(move.To.File, capturedRank));
+            }
+
+            return Board.GetPiece(move.To);
         }
 
         static Move PreferPromotion(Move tapped, IReadOnlyList<Move> options)
