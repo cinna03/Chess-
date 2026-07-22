@@ -10,8 +10,8 @@ namespace Chess.View
     public class ChessBoardView : MonoBehaviour
     {
         [Header("Layout")]
-        [SerializeField] float squareSize = 0.05f;
-        [SerializeField] float pieceHeight = 0.04f;
+        [SerializeField] float squareSize = 0.1f;
+        [SerializeField] float pieceHeight = 0.08f;
         [SerializeField] float boardY = 0.001f;
 
         [Header("Colors")]

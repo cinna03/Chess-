@@ -3,7 +3,6 @@ using Chess.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace Chess.EditorTools
 {
@@ -12,7 +11,7 @@ namespace Chess.EditorTools
     /// </summary>
     public static class ChessPlaytestSceneMenu
     {
-        const string ScenePath = "Assets/Scenes/ChessPlaytest.unity";
+        public const string ScenePath = "Assets/Scenes/ChessPlaytest.unity";
 
         [MenuItem("Chess/Open Editor Playtest Scene", false, 0)]
         public static void OpenPlaytestScene()
@@ -20,10 +19,20 @@ namespace Chess.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 return;
 
-            EnsurePlaytestSceneExists();
-            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-            Selection.activeGameObject = GameObject.Find("ChessBoard");
-            Debug.Log("[Chess] Opened ChessPlaytest scene. Press Play, then click pieces to move.");
+            if (!System.IO.File.Exists(ScenePath))
+                CreateAndSavePlaytestScene();
+
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var board = GameObject.Find("ChessBoard");
+            if (board != null)
+                Selection.activeGameObject = board;
+
+            EditorUtility.DisplayDialog(
+                "Chess Playtest",
+                "ChessPlaytest scene is open.\n\nPress Play, then click a white piece and a highlighted square to move.",
+                "OK");
+
+            Debug.Log($"[Chess] Opened {ScenePath}. Roots: {scene.rootCount}");
         }
 
         [MenuItem("Chess/Recreate Playtest Scene", false, 1)]
@@ -32,48 +41,55 @@ namespace Chess.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 return;
 
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            BuildContents();
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            AssetDatabase.Refresh();
-            Debug.Log($"[Chess] Saved playtest scene at {ScenePath}. Press Play to test.");
+            CreateAndSavePlaytestScene();
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            EditorUtility.DisplayDialog(
+                "Chess Playtest",
+                "Playtest scene recreated at Assets/Scenes/ChessPlaytest.unity.\n\nPress Play to test.",
+                "OK");
         }
 
-        static void EnsurePlaytestSceneExists()
+        static void CreateAndSavePlaytestScene()
         {
-            if (System.IO.File.Exists(ScenePath))
-                return;
-            RecreatePlaytestScene();
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            BuildContents();
+            System.IO.Directory.CreateDirectory("Assets/Scenes");
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+            Debug.Log($"[Chess] Saved playtest scene at {ScenePath}");
         }
 
         static void BuildContents()
         {
-            // Camera
             var camGo = new GameObject("Main Camera");
             var cam = camGo.AddComponent<Camera>();
             cam.tag = "MainCamera";
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.18f, 0.2f, 0.24f);
+            cam.nearClipPlane = 0.01f;
             camGo.AddComponent<AudioListener>();
             camGo.transform.position = new Vector3(0f, 0.65f, -0.65f);
-            camGo.transform.LookAt(Vector3.zero);
+            camGo.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
 
-            // Light
             var lightGo = new GameObject("Directional Light");
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
             light.intensity = 1.1f;
             lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
-            // Board root
             var boardGo = new GameObject("ChessBoard");
-            boardGo.AddComponent<ChessBoardView>();
-            boardGo.AddComponent<ChessGameController>();
-            boardGo.AddComponent<ChessHud>();
+            var boardView = boardGo.AddComponent<ChessBoardView>();
+            var controller = boardGo.AddComponent<ChessGameController>();
+            var hud = boardGo.AddComponent<ChessHud>();
 
-            // Bootstrap builds board in Awake only if ChessBoardView was just added empty —
-            // ChessGameController.Bind already builds via Bind/Refresh. ChessBoardView.BuildSquares
-            // runs on Bind. No ChessEditorBootstrap needed here.
+            var so = new SerializedObject(controller);
+            so.FindProperty("boardView").objectReferenceValue = boardView;
+            so.FindProperty("raycastCamera").objectReferenceValue = cam;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            var hudSo = new SerializedObject(hud);
+            hudSo.FindProperty("controller").objectReferenceValue = controller;
+            hudSo.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }
