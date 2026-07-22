@@ -43,7 +43,7 @@ ProjectSettings/
 1. Clone this repository (local path should be the Unity project root, e.g. `~/Chess`).
 2. Open the folder in Unity Hub (Unity 6).
 3. Let Unity import packages.
-4. **Editor playtest (no AR):** menu **GameObject → Chess → Create Editor Playtest Board**, then press Play. Click pieces/squares for hot-seat chess.
+4. **Editor playtest (no AR):** menu **Chess → Open Editor Playtest Scene** (do **not** use the AR SampleScene). Press Play, then click pieces/squares for hot-seat chess.
 5. Scripts live under `Assets/Scripts/Chess/` (`Core` = rules, `View` = board/input).
 6. For device testing: Build Settings → iOS → build & run on a signed iPhone (AR placement comes next).
 

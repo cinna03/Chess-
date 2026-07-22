@@ -14,7 +14,7 @@ namespace Chess.View
         void Awake()
         {
             if (controller == null)
-                controller = FindFirstObjectByType<ChessGameController>();
+                controller = FindAnyObjectByType<ChessGameController>();
         }
 
         void OnGUI()

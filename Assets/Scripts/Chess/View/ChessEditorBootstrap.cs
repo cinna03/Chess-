@@ -44,7 +44,7 @@ namespace Chess.View
                 cam.LookAt(transform.position);
             }
 
-            if (Object.FindFirstObjectByType<Light>() == null)
+            if (Object.FindAnyObjectByType<Light>() == null)
             {
                 var lightGo = new GameObject("Directional Light");
                 var light = lightGo.AddComponent<Light>();
