@@ -34,6 +34,13 @@ namespace Chess.View
         Transform _squaresRoot;
         Transform _piecesRoot;
         Transform _frame;
+        Transform _whiteCaptureTray;
+        Transform _blackCaptureTray;
+        int _whiteCaptureCount;
+        int _blackCaptureCount;
+        Square? _lastFrom;
+        Square? _lastTo;
+        ChessPieceView _selectedPiece;
         Coroutine _turnRoutine;
         Coroutine _moveRoutine;
 
@@ -83,6 +90,22 @@ namespace Chess.View
                 go.transform.SetParent(transform, false);
                 _piecesRoot = go.transform;
             }
+
+            if (_whiteCaptureTray == null)
+            {
+                var go = new GameObject("WhiteCaptureTray");
+                go.transform.SetParent(transform, false);
+                go.transform.localPosition = new Vector3(-squareSize * 5.1f, boardY, 0f);
+                _whiteCaptureTray = go.transform;
+            }
+
+            if (_blackCaptureTray == null)
+            {
+                var go = new GameObject("BlackCaptureTray");
+                go.transform.SetParent(transform, false);
+                go.transform.localPosition = new Vector3(squareSize * 5.1f, boardY, 0f);
+                _blackCaptureTray = go.transform;
+            }
         }
 
         void BuildBoardVisualsIfNeeded()
@@ -124,9 +147,24 @@ namespace Chess.View
                 StopCoroutine(_turnRoutine);
 
             IsBusy = false;
+            _lastFrom = null;
+            _lastTo = null;
+            _whiteCaptureCount = 0;
+            _blackCaptureCount = 0;
+            ClearSelectedPieceVisual();
+            ClearTrayChildren(_whiteCaptureTray);
+            ClearTrayChildren(_blackCaptureTray);
             transform.localRotation = Quaternion.identity;
             RebuildAllPieces();
             RefreshHighlights();
+        }
+
+        static void ClearTrayChildren(Transform tray)
+        {
+            if (tray == null)
+                return;
+            for (var i = tray.childCount - 1; i >= 0; i--)
+                Destroy(tray.GetChild(i).gameObject);
         }
 
         void HandleMoveApplied(MoveEvent moveEvent)
@@ -139,9 +177,11 @@ namespace Chess.View
         IEnumerator PlayMoveAnimation(MoveEvent moveEvent)
         {
             IsBusy = true;
+            ClearSelectedPieceVisual();
             var move = moveEvent.Move;
+            _lastFrom = move.From;
+            _lastTo = move.To;
 
-            // Capture exit first (or in parallel with move)
             ChessPieceView capturedView = null;
             if (move.IsEnPassant)
             {
@@ -163,11 +203,11 @@ namespace Chess.View
             Coroutine captureCo = null;
             if (capturedView != null)
             {
-                var away = capturedView.transform.localPosition + new Vector3(
-                    capturedView.Color == PieceColor.White ? -squareSize * 3f : squareSize * 3f,
-                    pieceHeight * 2f,
-                    0f);
-                captureCo = StartCoroutine(capturedView.AnimateCaptureExit(away, captureDuration));
+                var trayPos = NextTrayLocalPosition(moveEvent.SideThatMoved);
+                capturedView.transform.SetParent(
+                    moveEvent.SideThatMoved == PieceColor.White ? _whiteCaptureTray : _blackCaptureTray,
+                    true);
+                captureCo = StartCoroutine(capturedView.AnimateToTray(trayPos, captureDuration));
             }
 
             var target = PieceLocalPosition(move.To);
@@ -175,11 +215,9 @@ namespace Chess.View
             moverView.SetSquare(move.To);
             _piecesBySquare[Key(move.To)] = moverView;
 
-            // Castle: also slide rook
             if (move.IsCastle)
                 yield return AnimateCastleRook(move);
 
-            // Promotion visual swap
             if (move.Promotion != PieceType.None)
             {
                 RemovePieceAt(move.To);
@@ -190,11 +228,29 @@ namespace Chess.View
             if (captureCo != null)
                 yield return captureCo;
 
-            // Flip board to face the player whose turn it is now
             yield return RotateForSide(moveEvent.SideToMoveAfter);
 
             IsBusy = false;
             RefreshHighlights();
+        }
+
+        Vector3 NextTrayLocalPosition(PieceColor sideThatCaptured)
+        {
+            int index;
+            if (sideThatCaptured == PieceColor.White)
+            {
+                index = _whiteCaptureCount;
+                _whiteCaptureCount++;
+            }
+            else
+            {
+                index = _blackCaptureCount;
+                _blackCaptureCount++;
+            }
+
+            var col = index % 2;
+            var row = index / 2;
+            return new Vector3(col * squareSize * 0.55f, pieceHeight * 0.2f, -row * squareSize * 0.55f);
         }
 
         IEnumerator AnimateCastleRook(Move move)
@@ -222,7 +278,6 @@ namespace Chess.View
 
         IEnumerator RotateForSide(PieceColor side)
         {
-            IsBusy = true;
             var targetYaw = side == PieceColor.White ? 0f : 180f;
             var start = transform.localRotation;
             var end = Quaternion.Euler(0f, targetYaw, 0f);
@@ -237,7 +292,6 @@ namespace Chess.View
             }
 
             transform.localRotation = end;
-            IsBusy = false;
         }
 
         void RefreshHighlights()
@@ -246,11 +300,24 @@ namespace Chess.View
                 return;
 
             ClearHighlights();
+
+            if (_lastFrom.HasValue)
+                _squares[_lastFrom.Value.File, _lastFrom.Value.Rank].SetHighlight(SquareHighlight.LastMoveFrom);
+            if (_lastTo.HasValue)
+                _squares[_lastTo.Value.File, _lastTo.Value.Rank].SetHighlight(SquareHighlight.LastMoveTo);
+
+            ClearSelectedPieceVisual();
             if (!_game.SelectedSquare.HasValue)
                 return;
 
             var sel = _game.SelectedSquare.Value;
             _squares[sel.File, sel.Rank].SetHighlight(SquareHighlight.Selected);
+
+            if (_piecesBySquare.TryGetValue(Key(sel), out var piece) && piece != null)
+            {
+                _selectedPiece = piece;
+                piece.SetSelected(true);
+            }
 
             foreach (var move in _game.LegalMovesForSelection)
             {
@@ -258,6 +325,15 @@ namespace Chess.View
                     ? SquareHighlight.LegalCapture
                     : SquareHighlight.LegalMove;
                 _squares[move.To.File, move.To.Rank].SetHighlight(highlight);
+            }
+        }
+
+        void ClearSelectedPieceVisual()
+        {
+            if (_selectedPiece != null)
+            {
+                _selectedPiece.SetSelected(false);
+                _selectedPiece = null;
             }
         }
 
