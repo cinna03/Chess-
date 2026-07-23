@@ -3,6 +3,13 @@ using System.Collections.Generic;
 
 namespace Chess.Core
 {
+    public enum GameResult
+    {
+        Playing,
+        Checkmate,
+        Stalemate
+    }
+
     public readonly struct MoveEvent
     {
         public readonly Move Move;
@@ -11,6 +18,7 @@ namespace Chess.Core
         public readonly PieceColor SideThatMoved;
         public readonly PieceColor SideToMoveAfter;
         public readonly bool GaveCheck;
+        public readonly GameResult ResultAfterMove;
 
         public MoveEvent(
             Move move,
@@ -18,7 +26,8 @@ namespace Chess.Core
             Piece captured,
             PieceColor sideThatMoved,
             PieceColor sideToMoveAfter,
-            bool gaveCheck)
+            bool gaveCheck,
+            GameResult resultAfterMove)
         {
             Move = move;
             Mover = mover;
@@ -26,19 +35,24 @@ namespace Chess.Core
             SideThatMoved = sideThatMoved;
             SideToMoveAfter = sideToMoveAfter;
             GaveCheck = gaveCheck;
+            ResultAfterMove = resultAfterMove;
         }
 
         public bool WasCapture => !Captured.IsEmpty || Move.IsEnPassant || Move.IsCapture;
     }
 
     /// <summary>
-    /// Hot-seat chess session: selection, legal moves, apply move, reset.
+    /// Hot-seat / vs-AI chess session with endgame detection.
     /// </summary>
     public sealed class ChessGame
     {
         public ChessBoard Board { get; private set; }
         public Square? SelectedSquare { get; private set; }
         public IReadOnlyList<Move> LegalMovesForSelection { get; private set; } = Array.Empty<Move>();
+        public GameResult Result { get; private set; } = GameResult.Playing;
+        public PieceColor? Winner { get; private set; }
+
+        public bool IsGameOver => Result != GameResult.Playing;
 
         public event Action OnBoardChanged;
         public event Action OnNewGame;
@@ -46,6 +60,7 @@ namespace Chess.Core
         public event Action<PieceColor> OnCheck;
         public event Action<string> OnStatusMessage;
         public event Action<MoveEvent> OnMoveApplied;
+        public event Action<GameResult, PieceColor?> OnGameOver;
 
         public PieceColor SideToMove => Board.SideToMove;
 
@@ -58,6 +73,8 @@ namespace Chess.Core
         public void NewGame()
         {
             Board.SetupStartingPosition();
+            Result = GameResult.Playing;
+            Winner = null;
             ClearSelection();
             OnNewGame?.Invoke();
             RaiseBoardChanged();
@@ -73,7 +90,7 @@ namespace Chess.Core
 
         public bool HandleSquareTap(Square square)
         {
-            if (!square.IsValid)
+            if (IsGameOver || !square.IsValid)
                 return false;
 
             if (SelectedSquare.HasValue)
@@ -112,6 +129,9 @@ namespace Chess.Core
 
         public void SelectSquare(Square square)
         {
+            if (IsGameOver)
+                return;
+
             SelectedSquare = square;
             LegalMovesForSelection = MoveGenerator.GetLegalMovesFrom(Board, square);
             OnBoardChanged?.Invoke();
@@ -119,6 +139,9 @@ namespace Chess.Core
 
         public void ApplyMove(Move move)
         {
+            if (IsGameOver)
+                return;
+
             var sideThatMoved = Board.SideToMove;
             var mover = Board.GetPiece(move.From);
             var captured = ResolveCapturedPiece(move, mover);
@@ -128,14 +151,31 @@ namespace Chess.Core
 
             var sideAfter = Board.SideToMove;
             var inCheck = MoveGenerator.IsInCheck(Board, sideAfter);
+            var result = EvaluateResult(Board);
 
-            var moveEvent = new MoveEvent(move, mover, captured, sideThatMoved, sideAfter, inCheck);
+            Result = result;
+            if (result == GameResult.Checkmate)
+                Winner = sideThatMoved;
+            else if (result == GameResult.Stalemate)
+                Winner = null;
+
+            var moveEvent = new MoveEvent(move, mover, captured, sideThatMoved, sideAfter, inCheck, result);
             OnMoveApplied?.Invoke(moveEvent);
 
             RaiseBoardChanged();
             OnTurnChanged?.Invoke(sideAfter);
 
-            if (inCheck)
+            if (result == GameResult.Checkmate)
+            {
+                OnStatusMessage?.Invoke($"Checkmate! {sideThatMoved} wins!");
+                OnGameOver?.Invoke(result, Winner);
+            }
+            else if (result == GameResult.Stalemate)
+            {
+                OnStatusMessage?.Invoke("Stalemate — it's a draw!");
+                OnGameOver?.Invoke(result, null);
+            }
+            else if (inCheck)
             {
                 OnCheck?.Invoke(sideAfter);
                 OnStatusMessage?.Invoke($"Check! {sideAfter}'s king is in danger");
@@ -148,6 +188,17 @@ namespace Chess.Core
             {
                 OnStatusMessage?.Invoke($"{sideAfter}'s turn — make your move!");
             }
+        }
+
+        public static GameResult EvaluateResult(ChessBoard board)
+        {
+            var legal = MoveGenerator.GetLegalMoves(board);
+            if (legal.Count > 0)
+                return GameResult.Playing;
+
+            return MoveGenerator.IsInCheck(board, board.SideToMove)
+                ? GameResult.Checkmate
+                : GameResult.Stalemate;
         }
 
         Piece ResolveCapturedPiece(Move move, Piece mover)

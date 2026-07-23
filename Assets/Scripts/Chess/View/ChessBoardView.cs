@@ -48,6 +48,9 @@ namespace Chess.View
         public ChessGame Game => _game;
         public bool IsBusy { get; private set; }
 
+        /// <summary>Hot-seat flips the board; vs Computer keeps White facing the camera.</summary>
+        public bool RotateOnTurnChange { get; set; } = true;
+
         public void Bind(ChessGame game)
         {
             if (_game != null)
@@ -228,7 +231,10 @@ namespace Chess.View
             if (captureCo != null)
                 yield return captureCo;
 
-            yield return RotateForSide(moveEvent.SideToMoveAfter);
+            if (RotateOnTurnChange)
+                yield return RotateForSide(moveEvent.SideToMoveAfter);
+            else
+                transform.localRotation = Quaternion.identity;
 
             IsBusy = false;
             RefreshHighlights();
