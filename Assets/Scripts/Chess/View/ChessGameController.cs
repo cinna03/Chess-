@@ -38,6 +38,16 @@ namespace Chess.View
         public event System.Action<string> OnTipChanged;
         public event System.Action OnModeChanged;
 
+        /// <summary>False only when an AR placer exists and the board is not placed yet.</summary>
+        public bool BoardReadyForPlay
+        {
+            get
+            {
+                var placer = FindAnyObjectByType<Chess.AR.ARChessBoardPlacer>();
+                return placer == null || placer.IsPlaced;
+            }
+        }
+
         void Awake()
         {
             if (boardView == null)
@@ -68,6 +78,9 @@ namespace Chess.View
                 return;
 
             if (_game != null && _game.IsGameOver)
+                return;
+
+            if (!BoardReadyForPlay)
                 return;
 
             if (boardView != null && boardView.IsBusy)

@@ -59,6 +59,7 @@ namespace Chess.View
                 SquareHighlight.LegalCapture => Color.Lerp(_baseColor, new Color(0.95f, 0.4f, 0.4f), 0.3f),
                 SquareHighlight.LastMoveFrom => Color.Lerp(_baseColor, new Color(0.75f, 0.7f, 0.35f), 0.4f),
                 SquareHighlight.LastMoveTo => Color.Lerp(_baseColor, new Color(0.85f, 0.78f, 0.4f), 0.5f),
+                SquareHighlight.InCheck => Color.Lerp(_baseColor, new Color(1f, 0.2f, 0.25f), 0.65f),
                 _ => _baseColor
             };
 
@@ -106,6 +107,7 @@ namespace Chess.View
         LegalMove,
         LegalCapture,
         LastMoveFrom,
-        LastMoveTo
+        LastMoveTo,
+        InCheck
     }
 }

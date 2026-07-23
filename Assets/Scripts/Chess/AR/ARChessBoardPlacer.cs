@@ -25,6 +25,9 @@ namespace Chess.AR
         public bool IsPlaced { get; private set; }
         public string StatusText { get; private set; } = "Scan a table, then tap to place the chess board";
 
+        public event System.Action OnBoardPlaced;
+        public event System.Action OnPlacementReset;
+
         void Awake()
         {
             if (raycastManager == null)
@@ -86,7 +89,8 @@ namespace Chess.AR
                 boardRoot.gameObject.SetActive(true);
 
             IsPlaced = true;
-            StatusText = "Board placed — White to move (hot-seat)";
+            StatusText = "Board placed — choose a mode and play";
+            OnBoardPlaced?.Invoke();
         }
 
         public void ResetPlacement()
@@ -100,6 +104,7 @@ namespace Chess.AR
                 ? boardRoot.GetComponent<ChessGameController>()
                 : null;
             controller?.ResetGame();
+            OnPlacementReset?.Invoke();
         }
 
         static Quaternion AlignYawToCamera(Quaternion planeRotation)

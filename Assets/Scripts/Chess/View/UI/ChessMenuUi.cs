@@ -70,11 +70,27 @@ namespace Chess.View.UI
                 game.OnGameOver += OnGameOver;
             }
 
+            var placer = FindAnyObjectByType<Chess.AR.ARChessBoardPlacer>();
+            if (placer != null)
+            {
+                placer.OnBoardPlaced += OnArBoardPlaced;
+                placer.OnPlacementReset += OnArPlacementReset;
+                if (!placer.IsPlaced && _hudTip != null)
+                    _hudTip.text = placer.StatusText;
+            }
+
             RefreshModeVisibility();
         }
 
         void OnDestroy()
         {
+            var placer = FindAnyObjectByType<Chess.AR.ARChessBoardPlacer>();
+            if (placer != null)
+            {
+                placer.OnBoardPlaced -= OnArBoardPlaced;
+                placer.OnPlacementReset -= OnArPlacementReset;
+            }
+
             if (controller == null)
                 return;
             controller.OnTipChanged -= OnTip;
@@ -87,6 +103,19 @@ namespace Chess.View.UI
             game.OnTurnChanged -= OnTurn;
             game.OnNewGame -= OnNewGame;
             game.OnGameOver -= OnGameOver;
+        }
+
+        void OnArBoardPlaced()
+        {
+            var placer = FindAnyObjectByType<Chess.AR.ARChessBoardPlacer>();
+            if (_hudTip != null && placer != null)
+                _hudTip.text = placer.StatusText;
+        }
+
+        void OnArPlacementReset()
+        {
+            if (_hudTip != null)
+                _hudTip.text = "Scan a table, then tap to place the board";
         }
 
         void ResolveFonts()
@@ -109,6 +138,9 @@ namespace Chess.View.UI
         {
             foreach (var hud in FindObjectsByType<ChessHud>())
                 hud.enabled = false;
+
+            foreach (var arHud in FindObjectsByType<Chess.AR.ARChessHud>())
+                arHud.enabled = false;
         }
 
         void BuildUi()
@@ -176,12 +208,24 @@ namespace Chess.View.UI
             _hudSubline = AddText(banner.transform, "Make your move", 22, new Color(0.35f, 0.32f, 0.3f), new Vector2(0, -10), new Vector2(800, 36), bodyFont, FontStyle.Normal);
             _hudTip = AddText(banner.transform, "Tip: tap a piece, then a glowing square", 18, new Color(0.45f, 0.4f, 0.38f), new Vector2(0, -48), new Vector2(800, 30), bodyFont, FontStyle.Italic);
 
-            CreatePillButton(panel.transform, "New Game", new Vector2(0.22f, 0.04f), Mint, () => controller.ResetGame());
-            CreatePillButton(panel.transform, "Modes", new Vector2(0.78f, 0.04f), Accent, () =>
+            CreatePillButton(panel.transform, "New Game", new Vector2(0.18f, 0.04f), Mint, () => controller.ResetGame());
+            CreatePillButton(panel.transform, "Modes", new Vector2(0.50f, 0.04f), Accent, () =>
             {
                 controller.OpenModeSelect();
                 RefreshModeVisibility();
             });
+
+            // Shown only in AR scenes that have a placer
+            if (FindAnyObjectByType<Chess.AR.ARChessBoardPlacer>() != null)
+            {
+                CreatePillButton(panel.transform, "Replace", new Vector2(0.82f, 0.04f), new Color(0.45f, 0.5f, 0.7f), () =>
+                {
+                    var placer = FindAnyObjectByType<Chess.AR.ARChessBoardPlacer>();
+                    placer?.ResetPlacement();
+                    if (_hudTip != null)
+                        _hudTip.text = "Scan a table, then tap to place the board";
+                });
+            }
 
             panel.SetActive(false);
             return panel;

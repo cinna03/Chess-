@@ -9,6 +9,9 @@ EditorBuildSettings:
     path: Assets/Scenes/ChessPlaytest.unity
     guid: 8f3c2a1b9e4d4c6a8b7c6d5e4f3a2b1c
   - enabled: 1
+    path: Assets/Scenes/ARChess.unity
+    guid: 64c880ab7ff9e472a971055b6c035525
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 4755b35b590504809a7525fd2109c2e2
   m_configObjects:

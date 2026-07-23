@@ -11,7 +11,9 @@ Deadline: **Friday 23:59**. Use this as your final gate before Canvas.
 - [ ] Hot-seat: move → board flip → other color plays
 - [ ] vs Computer: you (White) move → “thinking” → Black moves alone
 - [ ] Captures go to tray; tips and banner update
+- [ ] Check highlights the king in red; checkmate/stalemate shows game-over panel
 - [ ] **New Game** and **Change Mode** work
+- [ ] Build Settings includes **ChessPlaytest** (+ **ARChess** for device builds)
 - [ ] Take 4–6 screenshots / one short GIF for README + DevLog
 
 ---
@@ -60,7 +62,7 @@ Record **5–7 minutes**, public YouTube (unlisted OK) or Drive “anyone with l
 5. **vs Computer (60s)** — your move, AI thinks, AI replies  
 6. **Technical Q&A voiceover (90s)** — answer out loud:
    - How are legal moves decided? *(MoveGenerator + check filter)*
-   - How does vs Computer work? *(SimpleChessAi: captures → checks → random)*
+   - How does vs Computer work? *(SimpleChessAi: minimax depth 3, alpha-beta, material + positional)*
    - Why no online multiplayer? *(scope / deadline)*
    - How does AR fit? *(plane tap placer; desktop build for public play)*
    - Who did what? *(honest attribution)*  

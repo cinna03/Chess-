@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using Chess.AR;
 using Chess.View;
+using Chess.View.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -40,10 +41,13 @@ namespace Chess.EditorTools
             var boardView = boardGo.GetComponent<ChessBoardView>() ?? Undo.AddComponent<ChessBoardView>(boardGo);
             var controller = boardGo.GetComponent<ChessGameController>() ?? Undo.AddComponent<ChessGameController>(boardGo);
 
-            // Prefer AR HUD over Editor playtest HUD
+            // Fancy uGUI replaces legacy OnGUI HUDs
             var editorHud = boardGo.GetComponent<ChessHud>();
             if (editorHud != null)
                 Undo.DestroyObjectImmediate(editorHud);
+
+            if (boardGo.GetComponent<ChessMenuUi>() == null)
+                Undo.AddComponent<ChessMenuUi>(boardGo);
 
             var placerGo = GameObject.Find("ARChessPlacer");
             if (placerGo == null)
@@ -53,6 +57,7 @@ namespace Chess.EditorTools
             }
 
             var placer = placerGo.GetComponent<ARChessBoardPlacer>() ?? Undo.AddComponent<ARChessBoardPlacer>(placerGo);
+            // Keep ARChessHud for fallback; ChessMenuUi disables it at runtime
             var arHud = placerGo.GetComponent<ARChessHud>() ?? Undo.AddComponent<ARChessHud>(placerGo);
 
             var placerSo = new SerializedObject(placer);
@@ -88,7 +93,8 @@ namespace Chess.EditorTools
                 "AR chess is set up in this scene.\n\n" +
                 "1. File → Save As… → Assets/Scenes/ARChess.unity (recommended)\n" +
                 "2. Build & Run on iPhone (ARKit)\n" +
-                "3. Scan a table → tap to place board → play hot-seat\n\n" +
+                "3. Scan a table → tap to place board → pick a mode → play\n" +
+                "4. Use Replace in the HUD to re-place the board\n\n" +
                 "Editor tip: XR Simulation can approximate planes; real device is the real test.",
                 "OK");
         }

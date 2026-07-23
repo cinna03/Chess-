@@ -15,12 +15,12 @@ namespace Chess.View
         [SerializeField] float pieceHeight = 0.08f;
         [SerializeField] float boardY = 0.001f;
 
-        [Header("Look")]
-        [SerializeField] Color lightSquare = new Color(0.93f, 0.84f, 0.70f);
-        [SerializeField] Color darkSquare = new Color(0.48f, 0.32f, 0.22f);
-        [SerializeField] Color whitePiece = new Color(0.96f, 0.94f, 0.90f);
-        [SerializeField] Color blackPiece = new Color(0.18f, 0.16f, 0.20f);
-        [SerializeField] Color boardFrame = new Color(0.35f, 0.22f, 0.14f);
+        [Header("Look — olive & cream (designer set)")]
+        [SerializeField] Color lightSquare = new Color(0.93f, 0.89f, 0.82f);
+        [SerializeField] Color darkSquare = new Color(0.35f, 0.45f, 0.28f);
+        [SerializeField] Color whitePiece = new Color(0.94f, 0.90f, 0.84f);
+        [SerializeField] Color blackPiece = new Color(0.28f, 0.38f, 0.24f);
+        [SerializeField] Color boardFrame = new Color(0.12f, 0.12f, 0.12f);
 
         [Header("Animation")]
         [SerializeField] float moveDuration = 0.35f;
@@ -311,6 +311,14 @@ namespace Chess.View
                 _squares[_lastFrom.Value.File, _lastFrom.Value.Rank].SetHighlight(SquareHighlight.LastMoveFrom);
             if (_lastTo.HasValue)
                 _squares[_lastTo.Value.File, _lastTo.Value.Rank].SetHighlight(SquareHighlight.LastMoveTo);
+
+            // Glow the king square when that side is in check
+            if (!_game.IsGameOver && MoveGenerator.IsInCheck(_game.Board, _game.SideToMove))
+            {
+                var king = _game.Board.FindKing(_game.SideToMove);
+                if (king.HasValue)
+                    _squares[king.Value.File, king.Value.Rank].SetHighlight(SquareHighlight.InCheck);
+            }
 
             ClearSelectedPieceVisual();
             if (!_game.SelectedSquare.HasValue)
