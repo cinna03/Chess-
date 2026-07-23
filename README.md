@@ -60,15 +60,4 @@ ProjectSettings/
 Scripts: `Assets/Scripts/Chess/Core` (rules), `View` (board/input), `AR` (placement).
 
 
-## Team
 
-| Name | Role | Contributions |
-|------|------|----------------|
-| **Group leader (you)** | Lead developer | Design, Unity/AR, chess logic, build, docs, video |
-| **Teammate** | Unavailable | No commits this submission (illness) |
-
-Update names before Canvas submission.
-
-## License / course use
-
-Student portfolio project for course submission.
